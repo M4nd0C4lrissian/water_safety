@@ -1,0 +1,10 @@
+Toronto city has dense hourly and daily data.
+
+Toronto Pearson International airport is only consistently monitored from 2013 onward.
+
+Buttonville is split into three IDs - 4841, 54239, and 53678 - need to be combined. Haven't checked yet, but it seems to have everything - just needs piecing we will see.
+
+The afforementioned two have both daily and hourly data.
+
+North York and East York Dustan have only daily, and East Dustan has many large gaps - maybe we want to avoid using it (and maybe we should focus prediction on Hanlan's point?)
+
