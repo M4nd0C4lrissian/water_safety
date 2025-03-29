@@ -1,0 +1,106 @@
+Command: 
+
+pip install genson
+gc water_safety\\ecoli_readings\\HanlansPointAll.json | python -m genson -i 1  
+
+general schema is a list of objects of shape:
+
+"CollectionDate, Data"
+
+where CollectionDate seems to be Year, Month, Day in reverse order
+
+and data could be either null, or a list of [
+        "advisory",
+        "beachId",
+        "beachName",
+        "eColi",
+        "statusFlag",
+        "statusFlagPre"
+       ]
+
+where null values are used / dummy values are present
+
+dummy values (WIP):
+
+- advisory: "There is no data available for this beach."
+- statusFlag: "NO_DATA" 
+- statusFlagPre: "NO_DATA" 
+
+These seem to both be associated with null eColi readings, but we'll see
+
+Otherwise, statusFlag is "UNSAFE" or "SAFE"
+
+Output:
+
+{
+ "$schema": "http://json-schema.org/schema#",
+
+ ## Outer Array
+
+ "type": "array",
+ "items": {
+  "type": "object",
+
+  "properties": 
+  
+  {
+   "CollectionDate": {
+    "type": "string"
+   },
+
+
+   "data": {
+    "anyOf": [
+     {
+      "type": "null"
+     },
+     {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "beachId": {
+         "type": "integer"
+        },
+        "beachName": {
+         "type": "string"
+        },
+        "eColi": {
+         "type": [
+          "integer",
+          "null"  ## has null readings
+         ]
+        },
+        "advisory": {
+         "type": "string"
+        },
+        "statusFlag": {
+         "type": "string"
+        },
+        "statusFlagPre": {
+         "type": [
+          "null",
+          "string"
+         ]
+        }
+       },
+       "required": [ ## all full, but sometimes with Null values
+        "advisory",
+        "beachId",
+        "beachName",
+        "eColi",
+        "statusFlag",
+        "statusFlagPre"
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "required": [
+   "CollectionDate",
+   "data"
+  ]
+
+ }
+}
