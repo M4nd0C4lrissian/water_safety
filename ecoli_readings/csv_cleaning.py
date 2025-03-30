@@ -30,12 +30,6 @@ def remove_val_from_col(path, out_path, col, val):
     df.index = range(df.shape[0])
     df.to_csv(out_path)
 
-## detect and log gaps in readings
-
-def find_continuous_dates():
-    pass
-
-
 if __name__ == '__main__':
 
     # count_null('water_safety\ecoli_readings\HanlansPoint.csv')
@@ -45,8 +39,8 @@ if __name__ == '__main__':
     # remove non-numeric
     # count_non_numeric('water_safety\ecoli_readings\HanlansPoint.csv', 'statusFlag')
 
-    remove_val_from_col('water_safety\ecoli_readings\HanlansPoint.csv',
-    'water_safety\ecoli_readings\cleaned_HanlansPoint.csv', 'statusFlag', 'UNTESTED')
+    # remove_val_from_col('water_safety\ecoli_readings\HanlansPoint.csv',
+    # 'water_safety\ecoli_readings\cleaned_HanlansPoint.csv', 'statusFlag', 'UNTESTED')
 
     # count_non_numeric('water_safety\ecoli_readings\cleaned_HanlansPoint.csv', 'statusFlag')
-
+    pass
