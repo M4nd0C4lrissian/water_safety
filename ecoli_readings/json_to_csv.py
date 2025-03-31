@@ -63,13 +63,15 @@ def beach_to_csv(json_path, out_path, date_name = 'CollectionDate', cols = ['bea
 
     if split_date:
         final_cols = ['Year', 'Month', 'Day'] + final_cols
+    else:
+        final_cols = [date_name] + final_cols
 
     df = pd.DataFrame(new_entries, columns= final_cols)
     df.to_csv(out_path)
             
 
 if __name__ == '__main__':
-    beach_to_csv('water_safety\ecoli_readings\HanlansPointAll.json', 'water_safety\ecoli_readings\HanlansPoint.csv')
+    beach_to_csv('water_safety\ecoli_readings\HanlansPointAll.json', 'water_safety\ecoli_readings\HanlansPoint.csv', split_date = False)
 
 
 ## NOTE -------

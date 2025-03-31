@@ -1,10 +1,11 @@
 stationID="4841"
-output_file="climate_data/hourly/${stationID}.csv"
+output_file="climate_data/hourly/fixed_${stationID}.csv"
+month="1"
 
 > "$output_file"
 
 for year in `seq 2007 2024`; do
-    for month in `seq 1 12`; do
+    # for month in `seq 1 12`; do
         temp_file="climate_data/hourly/temp.csv"
 
         wget --server-response --no-check-certificate -P climate_data/hourly \
@@ -18,5 +19,5 @@ for year in `seq 2007 2024`; do
         fi
 
         rm "$temp_file"
-    done
+    # done
 done
