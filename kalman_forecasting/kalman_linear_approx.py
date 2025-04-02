@@ -11,11 +11,22 @@ from sklearn.preprocessing import StandardScaler
 import pickle
 import os.path
 import warnings
+import copy
 
-def plot(test_set, predictions, title):
+def plot_from_test_set(test_set, predictions, title):
     plt.figure(figsize=(10, 5))
     plt.scatter(test_set['Date/Time'], test_set['eColi'], label="True E. coli")
     plt.scatter(test_set['Date/Time'], predictions, label="Predicted E. coli", linestyle="dashed")
+    plt.xlabel("Date")
+    plt.ylabel("E. coli Level")
+    plt.legend()
+    plt.title(f"{title}")
+    plt.savefig("water_safety/kalman_forecasting/graphs//" + title)
+
+def plot(true_labels, predictions, title):
+    plt.figure(figsize=(10, 5))
+    plt.scatter(range(len(true_labels)), true_labels, label="True E. coli")
+    plt.scatter(range(len(true_labels)), predictions, label="Predicted E. coli", linestyle="dashed")
     plt.xlabel("Date")
     plt.ylabel("E. coli Level")
     plt.legend()
@@ -119,24 +130,45 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
     kf.Q *= q_noise  # Process noise
     kf.R *= r_noise # Measurement noise
 
+    ##update state one step here
     state = test_set.iloc[0][state_features].values
     kf.x = np.array(state).reshape(-1, 1)  # Set initial state
     kf.P *= 1.0  # Reset uncertainty
 
     predictions = []
     linear_predictions = []
+    true_labels = []
+    i = 0
     # TODO: reset uncertainty in between summers
-    for _, row in test_set.iterrows():
-        kf.predict()
-        kf.update(row[['eColi', 'eColi_change']].values)
+
+    # TODO: store temporary kf state and reset it to the old one once the rollout is done
+    for ind, row in test_set.iloc[1:].iterrows():
+        if i > test_set.shape[0] - horizon:
+            break
+
+        prev_kf = copy.deepcopy(kf)
+        for _ in range(horizon - 1):
+            kf.predict()
+            kf.update(kf.x[0:2])
+        true_labels.append(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values[0])
+        kf.update(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values)
         predictions.append(kf.x[0, 0])  # Store predicted eColi
+
+        # linear still predicts only next day
         linear_predictions.append(reg.predict([row[state_features].values])[0,0])
-        
-        
-    plot(test_set, predictions, title=f"Kalman Filter - Summer {test_year} - Horizon {horizon}")
-    plot(test_set, linear_predictions, title=f"Linear Regression - Summer {test_year}")
+        i += 1
+
+        # reset to previous state here
+        kf = prev_kf
+        kf.predict()
+        kf.update(test_set.iloc[i][['eColi', 'eColi_change']].values)
+    
+    ## need to fix this - something is broken   
+    plot(true_labels, predictions, title=f"Kalman Filter - Summer {test_year} - Horizon {horizon}")
+    # plot(test_set.iloc[:test_set.shape[0]- (horizon - 1)], linear_predictions, title=f"Linear Regression - Summer {test_year}")
 
 if __name__ == '__main__':
 
     data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
-    kalman(data, 1, 0.2, 1)
+    horizon = 1
+    kalman(data, horizon, 0.2, 1)
