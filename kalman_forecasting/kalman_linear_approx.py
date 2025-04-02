@@ -138,7 +138,7 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
     predictions = []
     linear_predictions = []
     true_labels = []
-    i = 0
+    i = 1
     # TODO: reset uncertainty in between summers
 
     # TODO: store temporary kf state and reset it to the old one once the rollout is done
@@ -147,21 +147,25 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
             break
 
         prev_kf = copy.deepcopy(kf)
+
+        # kf.predict()
         for _ in range(horizon - 1):
             kf.predict()
             kf.update(kf.x[0:2])
+        
         true_labels.append(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values[0])
+        kf.predict()
         kf.update(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values)
         predictions.append(kf.x[0, 0])  # Store predicted eColi
 
         # linear still predicts only next day
         linear_predictions.append(reg.predict([row[state_features].values])[0,0])
-        i += 1
 
         # reset to previous state here
         kf = prev_kf
         kf.predict()
         kf.update(test_set.iloc[i][['eColi', 'eColi_change']].values)
+        i += 1
     
     ## need to fix this - something is broken   
     plot(true_labels, predictions, title=f"Kalman Filter - Summer {test_year} - Horizon {horizon}")
@@ -170,5 +174,5 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
 if __name__ == '__main__':
 
     data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
-    horizon = 1
+    horizon = 10
     kalman(data, horizon, 0.2, 1)
