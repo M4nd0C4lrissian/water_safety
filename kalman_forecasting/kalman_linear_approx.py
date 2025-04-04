@@ -10,7 +10,6 @@ import pickle
 from sklearn.preprocessing import StandardScaler
 import pickle
 import os.path
-import warnings
 import copy
 
 def plot_from_test_set(test_set, predictions, title):
@@ -55,10 +54,10 @@ def point_derivative(data):
 def get_training_set(summer_data, features):
     X_train, y_train = [], []
     for year, df in summer_data.items():
-        df2 = df.copy(deep=True)
+        df = df.copy(deep=True)
 
-        df['eColi_prev'] = df2['eColi'].shift(1)
-        df['eColi_change_prev'] = df2['eColi_change'].shift(1)
+        df['eColi_prev'] = df['eColi'].shift(1)
+        df['eColi_change_prev'] = df['eColi_change'].shift(1)
         df.dropna(inplace=True)
         
         X_train.append(df[features].values)
@@ -100,24 +99,22 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
     input_features = ['Max Temp (°C)', 'Min Temp (°C)', 'Mean Temp (°C)', 'Total Precip (mm)', 'Heat Deg Days (°C)', 'Cool Deg Days (°C)']
     state_features = ['eColi_prev', 'eColi_change_prev'] + input_features
     
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        summer_data = {year: get_series_by_year(data, year) for year in range(2007, 2025)}
+    summer_data = {year: get_series_by_year(data, year) for year in range(2007, 2025)}
 
-        test_year = sorted(summer_data.keys())[-1]  # hold out last summer
-        test_set = summer_data.pop(test_year) 
-           # Predict on the held-out summer
-        df2 = test_set.copy(deep=True)
-        test_set['eColi_prev'] = df2['eColi'].shift(1)
-        test_set['eColi_change_prev'] = df2['eColi_change'].shift(1)
-        test_set.dropna(inplace=True)
+    test_year = sorted(summer_data.keys())[-1]  # hold out last summer
+    test_set = summer_data.pop(test_year).copy()
+        # Predict on the held-out summer
+    df2 = test_set.copy(deep=True)
+    test_set['eColi_prev'] = df2['eColi'].shift(1)
+    test_set['eColi_change_prev'] = df2['eColi_change'].shift(1)
+    test_set.dropna(inplace=True)
 
-        # TODO: consider these things - or let Oliver's work distinguish if lagged features are useful
-        # add lagged features?
+    # TODO: consider these things - or let Oliver's work distinguish if lagged features are useful
+    # add lagged features?
 
-        X_train, y_train = get_training_set(summer_data, state_features)
-        file_path = "linear_transition_coeffs.pkl"
-        reg = f_estimate_func(file_path, X_train, y_train)
+    X_train, y_train = get_training_set(summer_data, state_features)
+    file_path = "linear_transition_coeffs.pkl"
+    reg = f_estimate_func(file_path, X_train, y_train)
 
     F_estimated = np.eye(len(state_features))
     # set first two rows to the linear regression coefficients
@@ -174,5 +171,5 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
 if __name__ == '__main__':
 
     data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
-    horizon = 10
+    horizon = 1
     kalman(data, horizon, 0.2, 1)
