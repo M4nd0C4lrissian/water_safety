@@ -32,6 +32,7 @@ def plot(true_labels, predictions, title):
     plt.ylabel("E. coli Level")
     plt.legend()
     plt.title(f"{title}")
+    plt.axhline(y=100, linestyle='--')
     plt.savefig("water_safety/kalman_forecasting/tuning_graphs//" + title + '.png')
 
 def get_year(x, dt_format = "%Y-%m-%d"):
@@ -104,7 +105,11 @@ def linear_regression(file_path, X_train, y_train):
 def evaluate_kalman_filter(test_set, kf, F_estimated, state_features, horizon):
     kf.F = F_estimated
     # kf.F =  np.eye(len(state_features))
-    kf.H = np.eye(2, len(state_features))  # Observation matrix: we only observe [eColi, rate of change]
+    kf.H = np.eye(8, len(state_features))  # Observation matrix: we only observe [eColi, rate of change]
+    
+    input_features = ['Max Temp (°C)', 'Min Temp (°C)', 'Mean Temp (°C)',
+                    'Total Precip (mm)', 'Heat Deg Days (°C)', 'Cool Deg Days (°C)']
+    state_features = ['eColi_prev', 'eColi_change_prev'] + input_features
 
     ##update state one step here
     state = test_set.iloc[0][state_features].values
@@ -122,20 +127,20 @@ def evaluate_kalman_filter(test_set, kf, F_estimated, state_features, horizon):
 
         for _ in range(horizon - 1):
             kf.predict()
-            kf.update(kf.x[0:2])
+            # kf.update(kf.x[0:2])
         
         true_labels.append(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values[0])
         kf.predict()
         predictions.append(kf.x[0, 0])  # Store predicted eColi
         ## NOTE: these values are not scaled - and they should be for this comparison
-        kf.update(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values)
+        kf.update(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change'] + input_features].values)
 
         # reset to previous state here - to keep the rollout update or not?
         # NOTE: when I update according to 
         kf = prev_kf
         kf.predict()
         ## NOTE: these values are not scaled - and they should be for this comparison
-        kf.update(test_set.iloc[i][['eColi', 'eColi_change']].values)
+        kf.update(test_set.iloc[i][['eColi', 'eColi_change'] + input_features].values)
         # print(kf.K)
         i += 1
         
@@ -188,10 +193,15 @@ def run_optimization_pipeline(data, horizon, q_vals, r_vals, alpha_vals, input_s
 
         F_est = np.eye(len(state_features))
         F_est[:2, :] = reg.coef_
+        
+        B = np.eye(len(state_features))
+        B[:2, :] = np.zeros((2, len(state_features)))
+        
 
-        kf = KalmanFilter(dim_x=len(state_features), dim_z=2)
+        kf = KalmanFilter(dim_x=len(state_features), dim_z=8)
         kf.Q *= q
         kf.R *= r
+        # kf.B = B
 
         try:
             mse, true_labels, predictions = evaluate_kalman_filter(test_set, kf, F_est, state_features, horizon)
@@ -206,18 +216,18 @@ def run_optimization_pipeline(data, horizon, q_vals, r_vals, alpha_vals, input_s
 
     print(f"\n Best Params: alpha={best_params[0]}, Q={best_params[1]}, R={best_params[2]} with MSE={best_score:.4f}")
     # print(best_predictions)
-    plot(best_labels, best_predictions, title=f"Kalman Filter alpha={best_params[0]}, Q={best_params[1]}, R={best_params[2]} - Summer {test_years} - Horizon {horizon}")
+    plot(best_labels, best_predictions, title=f"Weather Features Kalman Filter alpha={best_params[0]}, Q={best_params[1]}, R={best_params[2]} - Summer {test_years} - Horizon {horizon}")
     return best_params
     
 
 if __name__ == '__main__':
 
     data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
-    horizon = 1
+    horizon = 5
     
     input_scaler = None
     ecoli_scaler = None
-    best_params = run_optimization_pipeline(data, horizon, num_test_years=2, input_scaler=input_scaler, ecoli_scaler=ecoli_scaler, q_vals=[10], r_vals=[1e-5,1e-4,1e-3], alpha_vals= [1.0, 10.0, 50, 100])
+    best_params = run_optimization_pipeline(data, horizon, num_test_years=1, input_scaler=input_scaler, ecoli_scaler=ecoli_scaler, q_vals=[1e-5,1e-4,1e-3, 0.01], r_vals=[1e-5,1e-4,1e-3, 0.01, 1, 10], alpha_vals= [1.0, 10.0])
 
 # chooses q really low and R really high to minimize MSE by flattening the predictions
 #------------------------------------------------------------------------------------------------------------------------
@@ -252,12 +262,18 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
     F_estimated[:2, :] = reg.coef_
 
     # init Kalman Filter
-    kf = KalmanFilter(dim_x=len(state_features), dim_z=2)  # dim_z = [eColi, rate of change]
+    kf = KalmanFilter(dim_x=len(state_features), dim_z=8)  # dim_z = [eColi, rate of change]
     kf.F = F_estimated
     # kf.F =  np.eye(len(state_features))
-    kf.H = np.eye(2, len(state_features))  # Observation matrix: we only observe [eColi, rate of change]
+    kf.H = np.eye(8, len(state_features))  # Observation matrix: we only observe [eColi, rate of change]
     kf.Q *= q_noise  # Process noise
     kf.R *= r_noise # Measurement noise
+    
+    B = np.eye(len(state_features))
+    B[:2, :] = np.zeros((2, len(state_features)))
+    
+    F_control = np.zeros((len(state_features), len(state_features)))
+    F_control[:2, :] = reg.coef_
 
     ##update state one step here
     state = test_set.iloc[0][state_features].values
@@ -276,31 +292,35 @@ def kalman(data, horizon, q_noise, r_noise, f_estimate_func=linear_regression):
 
         # kf.predict()
         for _ in range(horizon - 1):
+            kf.K = F_estimated
             kf.predict()
-            kf.update(kf.x[0:2])
+            # kf.update(kf.x[0:2])
         
         true_labels.append(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values[0])
+        # kf.predict(u = test_set.iloc[i][state_features].values.reshape(-1, 1))
         kf.predict()
         predictions.append(kf.x[0, 0])  # Store predicted eColi
-        kf.update(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change']].values)
+        kf.update(test_set.iloc[i + horizon - 1][['eColi', 'eColi_change'] + input_features].values)
 
         # linear still predicts only next day
         linear_predictions.append(reg.predict([row[state_features].values])[0,0])
 
         # reset to previous state here - to keep the rollout update or not?
         kf = prev_kf
+        kf.K = F_estimated
+        # kf.predict(u = test_set.iloc[i][state_features].values.reshape(-1, 1))
         kf.predict()
-        kf.update(test_set.iloc[i][['eColi', 'eColi_change']].values)
+        kf.update(test_set.iloc[i][['eColi', 'eColi_change'] + input_features].values)
         # print(kf.K)
         i += 1
     
     ## need to fix this - something is broken   
-    plot(true_labels, predictions, title=f"Kalman Filter - Summer {test_year} - Horizon {horizon}")
+    plot(true_labels, predictions, title=f"{horizon}-step Forecasting")
     # plot(true_labels, linear_predictions, title=f"Linear Regression - Summer {test_year}")
     
     
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
-    horizon = 5
-    kalman(data, horizon, 0.2, 1)
+#     data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
+#     horizon = 5
+#     kalman(data, horizon, 0.2, 1)

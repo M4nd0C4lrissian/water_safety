@@ -1,16 +1,17 @@
 import numpy as np
 import pandas as pd
+from datetime import datetime
 
 def merge_duplicates(data_path, out_path):
     df = pd.read_csv(data_path, index_col=0)
     
-    df = df.groupby('Date/Time').first().reset_index()
+    df = df.groupby('Date/Time (LST)').first().reset_index()
     
     df.to_csv(out_path)
     
 def combine_weather_water(water_data, weather_data, out_path):
 
-    new_df = water_data.merge(weather_data, how='inner', left_on='CollectionDate', right_on='Date/Time')
+    new_df = water_data.merge(weather_data, how='inner', left_on='CollectionDate', right_on='Date/Time (LST)')
     new_df.to_csv(out_path)
 
 def find_viable_columns(data_path, out_path, rel_tolerance = 1):
@@ -44,14 +45,22 @@ def find_viable_columns(data_path, out_path, rel_tolerance = 1):
 # a lot of values are just M
 
 if __name__ == '__main__':
+    
+    timeframe = 'hourly'
+    
     # merge duplicates 
-    data_path = 'water_safety\weather_data_scripts\climate_data\daily\\31688.csv'    
+    data_path = f'water_safety\weather_data_scripts\climate_data\{timeframe}\\31688.csv'    
     merge_duplicates(data_path, data_path)
     # combine weather and water readings
     water_data = pd.read_csv('water_safety\ecoli_readings\cleaned_HanlansPoint.csv', index_col=0)
-    weather_data = pd.read_csv(data_path, index_col=0).drop(columns=['Unnamed: 0.1', 'Unnamed: 0.2', 'Unnamed: 0'])
-    merge_path = 'water_safety\weather_data_scripts\cleaned_data\daily\\merged_toronto_hanlans.csv'
+    weather_data = pd.read_csv(data_path, index_col=0)
+    
+    if timeframe == 'hourly':
+        weather_data['Date/Time (LST)'] = pd.to_datetime(weather_data['Date/Time (LST)'])
+        weather_data['Date/Time (LST)'] = weather_data['Date/Time (LST)'].dt.strftime('%Y-%m-%d')
+    
+    merge_path = f'water_safety\weather_data_scripts\cleaned_data\{timeframe}\\merged_toronto_hanlans.csv'
     combine_weather_water(water_data, weather_data, merge_path)
     # filter out bad_data
-    out_path = 'water_safety\weather_data_scripts\cleaned_data\daily\\merged_toronto_hanlans.csv'
+    out_path = f'water_safety\weather_data_scripts\cleaned_data\{timeframe}\\merged_toronto_hanlans.csv'
     find_viable_columns(merge_path, out_path, rel_tolerance=1)
