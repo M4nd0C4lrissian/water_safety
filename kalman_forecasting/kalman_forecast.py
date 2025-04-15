@@ -26,7 +26,7 @@ def plot_kalman(true_labels, predictions, uncertainty, kalman_gain, title):
     ax1.scatter(x, true_labels, label="True E. coli", color='blue', s=10)
     ax1.scatter(x, predictions, label="Predicted E. coli", color='orange', s=10)
     ax1.axhline(y=100, linestyle='--', color='gray', alpha=0.5)
-    ax1.set_ylim([-10, 300])
+    # ax1.set_ylim([-10, 300])
     ax1.set_xlabel("Date")
     ax1.set_ylabel("E. coli Level")
     ax1.legend(loc='upper left')
@@ -85,7 +85,7 @@ class KalmanFilter():
         
         self.Q_noise = Q_noise
         self.Q = Q_noise * np.eye(M)
-        self.R = R_noise
+        self.R = R_noise * np.eye(N)
         self.x = x_0
         self.F = F
         self.K = np.zeros((M, N))
