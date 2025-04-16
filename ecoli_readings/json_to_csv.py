@@ -71,7 +71,10 @@ def beach_to_csv(json_path, out_path, date_name = 'CollectionDate', cols = ['bea
             
 
 if __name__ == '__main__':
-    beach_to_csv('water_safety\ecoli_readings\HanlansPointAll.json', 'water_safety\ecoli_readings\HanlansPoint.csv', split_date = False)
+    
+    beach_name = 'CentreIslandBeach'
+    
+    beach_to_csv(f'water_safety\ecoli_readings\\beach_data_raw\\{beach_name}.json', f'water_safety\ecoli_readings\\{beach_name}.csv', split_date = False)
 
 
 ## NOTE -------

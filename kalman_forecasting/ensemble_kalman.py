@@ -195,17 +195,11 @@ def perturb_observations(true_y, R_matrix, e_num, seed=42):
         perturbed_y.append(np.array(ensemble_values))    
         
     return np.array(perturbed_y)
-    
-
-def augment_state(u, weather_features):
-    
-    weather_features = [1] + weather_features
-    return np.array([u, weather_features @ u])
 
 def ensemble_kalman(data, beach, e_num, r_noise, q_noise):
     
     # have to flatten state (coefficients) and make this work for multiple observation features
-    observation_features = ['eColi', 'eColi_prev']
+    observation_features = ['eColi', 'eColi_change']
     input_features = ['eColi_prev', 'eColi_change_prev'] + ['Max Temp (°C)', 'Min Temp (°C)', 'Mean Temp (°C)', 'Total Precip (mm)', 'Heat Deg Days (°C)', 'Cool Deg Days (°C)']
     
     # + 1 for constant 1
@@ -268,11 +262,11 @@ def ensemble_kalman(data, beach, e_num, r_noise, q_noise):
 if __name__ == '__main__':
     
     ensemble_num = 50
-    r_noise = 1000
-    q_noise = 0
+    r_noise = 50
+    q_noise = 0.01
     
     data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_hanlans.csv', index_col=0)
-    true_labels, predictions, uncertainty_log, kalman_gain_log = ensemble_kalman(data, 'Hanlan', ensemble_num, r_noise, q_noise)
+    true_labels, predictions, uncertainty_log, kalman_gain_log = ensemble_kalman(data, 'HanlansPoint', ensemble_num, r_noise, q_noise)
     
     eColi_true = [t[0] for t in true_labels]
     eColi_pred = [t[0] for t in predictions]

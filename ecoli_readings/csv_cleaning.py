@@ -31,16 +31,18 @@ def remove_val_from_col(path, out_path, col, val):
     df.to_csv(out_path)
 
 if __name__ == '__main__':
+    
+    beach_name = 'CentreIslandBeach'
 
-    count_null('water_safety\ecoli_readings\HanlansPoint.csv')
+    count_null(f'water_safety\ecoli_readings\\{beach_name}.csv')
 
     # no null values
 
     # remove non-numeric
-    count_non_numeric('water_safety\ecoli_readings\HanlansPoint.csv', 'statusFlag')
+    count_non_numeric(f'water_safety\ecoli_readings\\{beach_name}.csv', 'statusFlag')
 
-    remove_val_from_col('water_safety\ecoli_readings\HanlansPoint.csv',
-    'water_safety\ecoli_readings\cleaned_HanlansPoint.csv', 'statusFlag', 'UNTESTED')
+    remove_val_from_col(f'water_safety\ecoli_readings\\{beach_name}.csv',
+    f'water_safety\ecoli_readings\\cleaned_{beach_name}.csv', 'statusFlag', 'UNTESTED')
 
-    count_non_numeric('water_safety\ecoli_readings\cleaned_HanlansPoint.csv', 'statusFlag')
+    count_non_numeric(f'water_safety\ecoli_readings\\cleaned_{beach_name}.csv', 'statusFlag')
     pass
