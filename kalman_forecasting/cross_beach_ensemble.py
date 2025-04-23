@@ -14,9 +14,10 @@ import pickle
 import pickle
 import os.path
 import copy
+import json
 
 from kalman_forecast import get_series_by_year
-from kalman_linear_approx import linear_regression
+from old_inaccurate_kalman_linear_approx import linear_regression
 
 
 class MultiModelEnsembleKalmanFilter():
@@ -299,7 +300,7 @@ def ensemble_kalman(data, beach_names, per_beach_e_num, r_noise, q_noise, alpha)
     data = beach_point_derivative(data, beach_names)
     
     summer_data = {year: get_series_by_year(data, year) for year in range(2007, 2025)}
-    del summer_data[2009]
+    summer_data.pop(2009, None)
 
     beach_test_X = {}
     beach_test_Y = {}
@@ -317,6 +318,9 @@ def ensemble_kalman(data, beach_names, per_beach_e_num, r_noise, q_noise, alpha)
         # adding column of ones
         test_X = np.column_stack((np.ones((test_X.shape[0], 1)), test_X))
         test_Y = Y_dict.pop(2024).copy()
+        
+        if len(test_Y) < 93:
+            pass
         
         # store beach-specific test data for later       
         beach_test_X[beach] = test_X
@@ -413,7 +417,7 @@ def plot_kalman(true_labels, predictions, uncertainty, kalman_gain, title):
     
     plt.title(title)
     plt.tight_layout()
-    plt.savefig(f"water_safety/kalman_forecasting/multi_beach_ensemble/{title}.png")
+    plt.savefig(f"water_safety/kalman_forecasting/multi_beach_ensemble/tuned/{title}.png")
     plt.close()
     
 def visualize_ensemble_spread_vs_truth(beach_names, beach_true_labels, beach_predictions, title_prefix="ensemble_spread_vs_truth"):
@@ -461,12 +465,10 @@ if __name__ == '__main__':
     
     r_list = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1]
     q_list = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1]
-    e_list = [5, 10, 15, 25, 50, 75, 100]
+    e_list = [1, 2, 5, 10, 15, 25, 50]
     a_list = [1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2]
     
     beach_names = ['HanlansPoint', 'GibraltarPoint', 'CherryBeach', 'WardsIsland', 'CentreIslandBeach']
-    
-    data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_multi_beach.csv', index_col=0)
     
     best_score = {}
     best_params = {}
@@ -475,6 +477,8 @@ if __name__ == '__main__':
     best_uncertainty_log = {}
     best_kalman_gain_log = {}
     
+    best_ensemble_predictions = {}
+    
     best_total_score = float('inf')
     best_total_params = None
     
@@ -482,6 +486,8 @@ if __name__ == '__main__':
         best_score[beach] = float('inf')
     
     for e, a, q, r in product(e_list, a_list, q_list, r_list):
+        
+        data = pd.read_csv('water_safety/weather_data_scripts/cleaned_data/daily/cleaned_merged_toronto_city_multi_beach.csv', index_col=0)
         
         print(f'testing {e}, {a}, {q}, {r}')
         
@@ -511,12 +517,14 @@ if __name__ == '__main__':
                 best_labels[beach] = eColi_true
                 best_predictions[beach] = eColi_pred
                 
+                best_ensemble_predictions[beach] = ensemble_predictions
+                
                 best_uncertainty_log[beach] = uncertainty_log
                 best_kalman_gain_log[beach] = kalman_gain_log
                 
         if total_score < best_total_score:
             best_total_score = total_score
-            best_total_params = best_params
+            best_total_params = (e, a, q, r)
     
     for beach in beach_names:
         
@@ -525,11 +533,22 @@ if __name__ == '__main__':
         mse = best_score[beach]
         
         ensemble_num, alpha, q_noise, r_noise = tup[0], tup[1], tup[2], tup[3]
-              
         
-        plot_kalman(best_labels[beach], best_predictions[beach], uncertainty_mag, kalman_mag, f'{beach} e_num - {ensemble_num} - a - {alpha} - q - {q_noise} r - {r_noise} - MSE - {mse}')
+        best_uncertainty_mag = [np.linalg.norm(c) for c in best_uncertainty_log[beach]]
+        best_kalman_mag = [np.linalg.norm(k) for k in best_kalman_gain_log[beach]]
+              
+        plot_kalman(best_labels[beach], best_predictions[beach], best_uncertainty_mag, best_kalman_mag, f'Tuned {beach} e_num - {ensemble_num} - a - {alpha} - q - {q_noise} r - {r_noise} - MSE - {mse}')
             
-        visualize_ensemble_spread_vs_truth(best_predictions[beach], best_labels[beach], ensemble_predictions)
+        # visualize_ensemble_spread_vs_truth(best_predictions, best_labels, best_ensemble_predictions, title_prefix='/tuned/ensemble_spread_vs_truth')
+        
+    print('Best params for all models combined:', best_total_params)
+   
+    with open(f'water_safety\kalman_forecasting\multi_beach_ensemble\\best_params\\best_params.json', 'w') as fp:
+        json.dump(best_params, fp)
+            
+    
+    
+    # visualize_ensemble_spread_vs_truth(best_predictions, best_labels, best_ensemble_predictions, title_prefix='/tuned/ensemble_spread_vs_truth')
     
     
     
@@ -541,3 +560,5 @@ if __name__ == '__main__':
 #     q_noise = 0.001
     
 #     alpha = 0.0001
+
+# got to testing 50, 0.001, 0.1, 0.01

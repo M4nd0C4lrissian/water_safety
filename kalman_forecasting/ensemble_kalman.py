@@ -15,7 +15,7 @@ import os.path
 import copy
 
 from kalman_forecast import plot_kalman, point_derivative, get_series_by_year
-from kalman_linear_approx import linear_regression
+from old_inaccurate_kalman_linear_approx import linear_regression
 
 
 class EnsembleKalmanFilter():
